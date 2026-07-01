@@ -1,0 +1,92 @@
+# Direktorijumi sa izvornim kodom programa
+SRC_DIR = src
+SRC_INC_DIR = include
+
+# Naziv programa
+SHARED_TARGET = $(BIN_DIR)/run
+STATIC_TARGET = $(BIN_DIR)/run_static
+
+# Direktorijumi sa izvornim kodom biblioteka
+LIB_SRC_DIR = lib/src
+LIB_SRC_INC = lib/include
+
+# Biblioteke koje pravimo
+STATIC_LIB = $(LIB_BIN_DIR)/libzbir.a
+SHARED_LIB = $(LIB_BIN_DIR)/libzbir.so
+
+# direktorijumi sa objektnim kodom
+BUILD_DIR = build
+
+# Direktorijumi sa izvrsnim kodom
+BIN_DIR = bin
+LIB_BIN_DIR = lib/bin
+
+
+#------------------- Kompajler i flagovi ------------------------------
+CC = gcc
+CFLAGS = -Wall -Wextra -O2 -I$(SRC_INC_DIR) -I$(LIB_SRC_INC)
+# flag za kompajliranje biblioteka
+PICFLAGS = -fPIC	
+# lokacija biblioteka iz projekta, ako se koriste jos neke koje nisu
+# sistemske navedi i njihovu lokaciju
+LDFLAGS = -Llib/bin 
+# Ovde navedi i druge biblioteke koje koristis, npr: -lm ... 
+LDLIBS = -lzbir
+#-----------------------------------------------------------------------
+
+
+# Fajlovi sa izvornim kodom programa
+SRC_FILES = $(wildcard $(SRC_DIR)/*.c)
+LIB_SRC_FILES = $(wildcard $(LIB_SRC_DIR)/*.c)
+
+# Objektni fajlovi za program i biblioteku
+OBJ_SRC = $(SRC_FILES:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
+OBJ_LIB = $(LIB_SRC_FILES:$(LIB_SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
+
+# Default target
+all: dirs libs $(SHARED_TARGET) $(STATIC_TARGET)
+
+# Kreiraj potrebne direktorijume
+dirs:
+	@echo "Kreiranje direktorijuma: $(BUILD_DIR), $(BIN_DIR) i $(LIB_BIN_DIR)"
+	mkdir -p $(BUILD_DIR) $(BIN_DIR) $(LIB_BIN_DIR)
+
+# Kompajliranje .c fajlova programa
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
+	$(CC) $(CFLAGS) -c $< -o $@
+
+# Kompajliranje .c fajlova biblioteke
+$(BUILD_DIR)/%.o: $(LIB_SRC_DIR)/%.c
+	$(CC) $(CFLAGS) $(PICFLAGS) -c $< -o $@
+
+
+# Statička biblioteka (samo od vanjskih deps)
+$(STATIC_LIB): $(OBJ_LIB)
+	@echo "Formiranje staticke biblioteke libzbir.a ..."
+	ar rcs $@ $^
+
+# Dinamička biblioteka
+$(SHARED_LIB): $(OBJ_LIB)
+	@echo "Formiranje dinamicke biblioteke libzbir.so ..."
+	$(CC) -shared -o $@ $^
+
+# Pravljenje biblioteka
+libs: dirs $(STATIC_LIB) $(SHARED_LIB) 
+
+# Linkovanje finalnog programa staticki 
+$(STATIC_TARGET): $(OBJ_SRC) $(STATIC_LIB) 
+	$(CC) $(OBJ_SRC) -o $@ $(LDFLAGS) $(LDLIBS) -static
+
+# Linkovanje finalnog programa staticki 
+$(SHARED_TARGET): $(OBJ_SRC) $(SHARED_LIB) 
+# 	$(CC) $(OBJ_SRC) -o $@ $(LDFLAGS) $(LDLIBS) $(SHARED_LIB)
+	$(CC) $(OBJ_SRC) -o $@ $(LDFLAGS) $(LDLIBS) 
+
+# Čišćenje
+clean:
+	@echo "Brisanje binarih fajlova..."
+	rm -rf $(BUILD_DIR) $(BIN_DIR) $(LIB_BIN_DIR)
+
+# Phony targets
+.PHONY: all dirs libs clean			
+
